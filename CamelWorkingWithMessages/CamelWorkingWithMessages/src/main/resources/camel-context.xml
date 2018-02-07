@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+         http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+         http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd">
+	<camelContext id="camel" xmlns="http://camel.apache.org/schema/spring">
+	<!--  Disable automatic startup of routes -->
+		<route id="getSendMessageQueue" autoStartup="false">
+		<!--  Take messages from firstQueue and send it to secondQueue.
+				 For topic we need to use the word "topic" after activemq
+				 scheme -->
+			<from uri="activemqSimple:queue:firstQueue" />
+			<to uri="activemqSimple:queue:secondQueue" />
+		</route>
+		<route id="usePoolingInActiveMQ" autoStartup="false">
+		<!--  concurrentConsumers attribute can also be used to define
+				 number of consumers.
+				 Read messages from topic with 3 consumers. -->
+			<from uri="activemqPool:topic:firstTopic?concurrentConsumers=3" />
+			<to uri="stream:out" />
+		</route>
+		<route id="usingMessageListenerWithActiveMQ" autoStartup="false">
+			<from uri="jms:firstQueue" />
+			<bean ref="msgList" />
+		</route>
+	</camelContext>
+	<!-- 		 Create connection factory to connect to ActiveMQ broker
+	 -->
+	<bean id="connectionFactory" class="org.apache.activemq.ActiveMQConnectionFactory">
+		<property name="brokerURL" value="tcp://localhost:61616" />		
+	</bean>
+	<!-- Pooled Connection Factory -->
+	<bean id="pooledConnectionFactory" class="org.apache.activemq.pool.PooledConnectionFactory">
+	<!--  A maximum of 10 connections can be opened on high volume -->
+		<property name="maxConnections" value="10" />
+		<property name="connectionFactory" ref="connectionFactory" />
+	</bean>
+	<bean id="jmsConfiguration" class="org.apache.camel.component.jms.JmsConfiguration">
+		<property name="connectionFactory" ref="pooledConnectionFactory" />
+		<property name="transacted" value="false" />
+		<!--  It will start at 3 parallel consumers -->
+		<property name="concurrentConsumers" value="3" />
+		<!--  Once all the messages are sent or received, the client send
+		 acknowledgement to activemq -->
+		<property name="acknowledgementModeName" value="AUTO_ACKNOWLEDGE" />
+	</bean>
+	<bean id="activemqSimple" class="org.apache.activemq.camel.component.ActiveMQComponent">
+	</bean>
+	<bean id="activemqPool" class="org.apache.activemq.camel.component.ActiveMQComponent">
+		<property name="configuration" ref="jmsConfiguration" />
+	</bean>
+	
+	<!-- For route 3 usingMessageListenerWithActiveMQ-->
+	<bean id="jms" class="org.apache.camel.component.jms.JmsComponent">
+		<property name="connectionFactory" ref="connectionFactory" />
+	</bean>
+	<bean id="msgList" class="com.javanbeyond.ActiveMQMessageListener" />
+</beans>

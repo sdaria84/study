@@ -1,0 +1,1 @@
+http://www.javanbeyond.com/camel/camel-as-activemq-client-jmsactivemq-components/
